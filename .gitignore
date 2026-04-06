@@ -1,0 +1,23 @@
+# Local authoring files
+.prompt.md
+.DS_Store
+
+# Build outputs and CMake machine-local state
+build/
+cmake-build-*/
+CMakeUserPresets.json
+
+# Generated benchmark artifacts and profiler outputs
+results/
+
+# Downloaded datasets and processed caches/manifests
+data/raw/
+data/processed/cache/
+data/processed/manifests/
+
+# Temporary public-export staging
+public_artifacts/
+
+# Python caches
+__pycache__/
+*.pyc
