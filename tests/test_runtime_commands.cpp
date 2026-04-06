@@ -176,6 +176,7 @@ int main() {
     assert(Helios::Metrics::read_json(report_json.string(), report_metrics));
     assert(require_metric(report_metrics, "result_kind") == "report");
     assert(require_metric(report_metrics, "result_count") == "2");
+    assert(require_metric(report_metrics, "real_data_result_count") == "0");
     assert(!require_metric(report_metrics, "planner_observation_count").empty());
 
     std::ifstream planner_log_input(planner_log_jsonl);

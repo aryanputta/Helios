@@ -998,6 +998,10 @@ std::string dataset_label(const std::vector<Metrics::MetricEntry>& metrics) {
     return {};
 }
 
+bool is_synthetic_dataset_label(const std::string& dataset) {
+    return !dataset.empty() && dataset.rfind("synthetic_dense_sanity", 0) == 0;
+}
+
 bool load_report_record(const std::string& path, ReportRecord& record) {
     std::vector<Metrics::MetricEntry> metrics;
     if (!Metrics::read_metrics(path, metrics)) {
@@ -1113,7 +1117,7 @@ int handle_report(const std::vector<std::string>& args) {
 
     for (const auto& record : records) {
         any_cuda_available = any_cuda_available || record.cuda_runtime_available;
-        const bool is_real_data = !record.dataset.empty() && record.dataset != "synthetic_dense_sanity";
+        const bool is_real_data = !record.dataset.empty() && !is_synthetic_dataset_label(record.dataset);
         if (is_real_data) {
             ++real_data_result_count;
         }

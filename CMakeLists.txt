@@ -10,6 +10,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 check_language(CUDA)
 
+if(CMAKE_CUDA_COMPILER AND NOT CMAKE_CUDA_ARCHITECTURES)
+    # Colab and other ephemeral CUDA hosts do not always populate a default arch.
+    # Keep this overrideable, but pick a conservative default so configure does not fail.
+    set(CMAKE_CUDA_ARCHITECTURES 75 CACHE STRING "CUDA architectures to build for" FORCE)
+endif()
+
+if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+endif()
+
 set(HELIOS_CORE_SOURCES
     src/cli/cli.cpp
     src/planner/planner.cpp
@@ -46,10 +56,10 @@ target_include_directories(helios_core PUBLIC include)
 target_compile_features(helios_core PUBLIC cxx_std_17)
 
 if(CMAKE_CUDA_COMPILER)
-    enable_language(CUDA)
     set_target_properties(helios_core PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
         CUDA_STANDARD 17
+        CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}"
     )
     target_compile_definitions(helios_core PUBLIC HELIOS_ENABLE_CUDA=1)
 
