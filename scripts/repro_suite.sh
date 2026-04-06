@@ -86,4 +86,12 @@ cmake --build "$BUILD_DIR" -- -j4
   --md "$REPO_ROOT/results/reports/proof_report.md" \
   --json "$REPO_ROOT/results/json/proof_report.json"
 
+python3 "$REPO_ROOT/scripts/render_proof_plots.py" \
+  --report-json "$REPO_ROOT/results/json/proof_report.json" \
+  --result "$REPO_ROOT/results/json/bcsstk30_spmv_proof.json" \
+  --result "$REPO_ROOT/results/json/dense_512_proof.json" \
+  --validation "$REPO_ROOT/results/json/bcsstk30_validate_v2.json" \
+  --validation "$REPO_ROOT/results/json/facebook_bfs_validate_v2.json" \
+  --output-dir "$REPO_ROOT/results/reports"
+
 echo "Helios repro suite complete."

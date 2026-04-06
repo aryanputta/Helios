@@ -955,6 +955,7 @@ struct ReportRecord {
     double avx2_speedup_vs_scalar = 0.0;
     double threaded_speedup_vs_scalar = 0.0;
     double selected_regret_vs_winner = 0.0;
+    double selected_time_saved_pct = 0.0;
     bool selected_won = false;
     bool has_selected_speedup = false;
     bool has_best_speedup = false;
@@ -963,6 +964,7 @@ struct ReportRecord {
     bool has_avx2_speedup = false;
     bool has_threaded_speedup = false;
     bool has_selected_regret = false;
+    bool has_selected_time_saved = false;
     bool has_selected_won = false;
     bool cuda_compiled = false;
     bool cuda_runtime_available = false;
@@ -1002,6 +1004,13 @@ bool is_synthetic_dataset_label(const std::string& dataset) {
     return !dataset.empty() && dataset.rfind("synthetic_dense_sanity", 0) == 0;
 }
 
+double time_saved_pct_from_speedup(double speedup_vs_scalar) {
+    if (speedup_vs_scalar <= 0.0) {
+        return 0.0;
+    }
+    return std::max(0.0, (1.0 - (1.0 / speedup_vs_scalar)) * 100.0);
+}
+
 bool load_report_record(const std::string& path, ReportRecord& record) {
     std::vector<Metrics::MetricEntry> metrics;
     if (!Metrics::read_metrics(path, metrics)) {
@@ -1039,6 +1048,10 @@ bool load_report_record(const std::string& path, ReportRecord& record) {
             parse_metric_double(metrics, selected_prefix + "effective_gflops", record.selected_effective_gflops);
         record.has_selected_effective_bandwidth =
             parse_metric_double(metrics, selected_prefix + "effective_bandwidth_gbps", record.selected_effective_bandwidth_gbps);
+        if (record.has_selected_speedup) {
+            record.selected_time_saved_pct = time_saved_pct_from_speedup(record.selected_speedup_vs_scalar);
+            record.has_selected_time_saved = true;
+        }
     }
 
     record.has_avx2_speedup = parse_metric_double(metrics, "avx2_speedup_vs_scalar", record.avx2_speedup_vs_scalar);
@@ -1200,6 +1213,9 @@ int handle_report(const std::vector<std::string>& args) {
         if (record.has_selected_speedup) {
             std::cout << " speedup_vs_scalar=" << format_double(record.selected_speedup_vs_scalar);
         }
+        if (record.has_selected_time_saved) {
+            std::cout << " time_saved_pct=" << format_double(record.selected_time_saved_pct, 2);
+        }
         if (record.has_selected_effective_gflops) {
             std::cout << " effective_gflops=" << format_double(record.selected_effective_gflops);
         }
@@ -1252,6 +1268,7 @@ int handle_report(const std::vector<std::string>& args) {
     if (have_best_overall) {
         append_entries(report, {
             {"best_speedup_vs_scalar", format_double(best_overall_record.best_speedup_vs_scalar)},
+            {"best_time_saved_pct", format_double(time_saved_pct_from_speedup(best_overall_record.best_speedup_vs_scalar), 2)},
             {"best_speedup_workload", best_overall_record.workload},
             {"best_speedup_dataset", best_overall_record.dataset},
             {"best_speedup_source", best_overall_record.path},
@@ -1260,6 +1277,7 @@ int handle_report(const std::vector<std::string>& args) {
     if (have_best_real_data) {
         append_entries(report, {
             {"best_real_data_speedup_vs_scalar", format_double(best_real_data_record.best_speedup_vs_scalar)},
+            {"best_real_data_time_saved_pct", format_double(time_saved_pct_from_speedup(best_real_data_record.best_speedup_vs_scalar), 2)},
             {"best_real_data_workload", best_real_data_record.workload},
             {"best_real_data_dataset", best_real_data_record.dataset},
             {"best_real_data_source", best_real_data_record.path},
@@ -1295,6 +1313,9 @@ int handle_report(const std::vector<std::string>& args) {
 
         if (record.has_selected_speedup) {
             report.push_back({prefix + "selected_speedup_vs_scalar", format_double(record.selected_speedup_vs_scalar)});
+        }
+        if (record.has_selected_time_saved) {
+            report.push_back({prefix + "selected_time_saved_pct", format_double(record.selected_time_saved_pct, 2)});
         }
         if (record.has_selected_won) {
             report.push_back({prefix + "selected_won", record.selected_won ? "true" : "false"});
@@ -1339,14 +1360,24 @@ int handle_report(const std::vector<std::string>& args) {
         if (have_best_overall) {
             markdown << "- Best observed speedup versus scalar: "
                      << format_double(best_overall_record.best_speedup_vs_scalar) << "x"
+                     << " (" << format_double(time_saved_pct_from_speedup(best_overall_record.best_speedup_vs_scalar), 2)
+                     << "% less median time)"
                      << " on [" << best_overall_record.workload << "] "
                      << best_overall_record.dataset << " from " << best_overall_record.path << "\n";
         }
         if (have_best_real_data) {
             markdown << "- Best real-data speedup versus scalar: "
                      << format_double(best_real_data_record.best_speedup_vs_scalar) << "x"
+                     << " (" << format_double(time_saved_pct_from_speedup(best_real_data_record.best_speedup_vs_scalar), 2)
+                     << "% less median time)"
                      << " on [" << best_real_data_record.workload << "] "
                      << best_real_data_record.dataset << " from " << best_real_data_record.path << "\n";
+        }
+        if (planner_observation_count > 0) {
+            markdown << "- Planner matched the measured winner on "
+                     << planner_selected_won_count << "/" << planner_observation_count
+                     << " compare-baseline runs (" << format_double(planner_accuracy * 100.0, 2)
+                     << "% accuracy).\n";
         }
         if (!any_cuda_available) {
             markdown << "- CUDA proof remains blocked in these artifacts because every scanned result reported cuda_runtime_available=false.\n";
@@ -1366,6 +1397,9 @@ int handle_report(const std::vector<std::string>& args) {
                      << ", median_ms=" << format_double(record.median_ms);
             if (record.has_selected_speedup) {
                 markdown << ", speedup_vs_scalar=" << format_double(record.selected_speedup_vs_scalar);
+            }
+            if (record.has_selected_time_saved) {
+                markdown << ", time_saved_pct=" << format_double(record.selected_time_saved_pct, 2);
             }
             if (record.has_selected_effective_gflops) {
                 markdown << ", effective_gflops=" << format_double(record.selected_effective_gflops);

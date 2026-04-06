@@ -25,8 +25,13 @@ else
   echo "[colab] nvcc not found in PATH"
 fi
 
-sudo apt-get update
-sudo apt-get install -y build-essential cmake ninja-build
+APT_RUNNER=()
+if command -v sudo >/dev/null 2>&1 && [ "$(id -u)" -ne 0 ]; then
+  APT_RUNNER=(sudo)
+fi
+
+DEBIAN_FRONTEND=noninteractive "${APT_RUNNER[@]}" apt-get update
+DEBIAN_FRONTEND=noninteractive "${APT_RUNNER[@]}" apt-get install -y build-essential cmake ninja-build
 
 cmake -S "$REPO_ROOT" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
@@ -36,4 +41,3 @@ cmake -S "$REPO_ROOT" -B "$BUILD_DIR" \
 cmake --build "$BUILD_DIR" -- -j"$(nproc)"
 
 echo "[colab] build complete: $BUILD_DIR/helios"
-
